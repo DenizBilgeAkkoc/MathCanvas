@@ -345,7 +345,7 @@ if __name__ == "__main__":
                 comp_prev = previous_args_dict.copy()
                 comp_curr = current_args_dict.copy()
                 
-                for key in ['verbose_iter', 'verbose_image']:
+                for key in ['verbose_iter', 'verbose_image', 'input_path']:
                     comp_prev.pop(key, None)
                     comp_curr.pop(key, None)
 
