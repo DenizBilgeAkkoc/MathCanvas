@@ -60,7 +60,7 @@ This inference mode, primarily driven by `mathcanvas_interleave_reasoner.py`, ge
 
 **On MathCanvas-Bench:**
 
-1.  **Get Data**: Download `MathCanvas-Bench` from [Hugging Face](https://huggingface.co/datasets/shiwk24/MathCanvas-Bench) or use the local copy provided in `MathCanvas/benchmark/` (`data.jsonl` and the `images/` directory).
+1.  **Get Data**: Download `MathCanvas-Bench` from [Hugging Face](https://huggingface.co/datasets/shiwk24/MathCanvas-Bench) or use the local copy provided in `MathCanvas/benchmark/` (`MathCanvas-Bench.jsonl` and the `images/` directory).
 2.  **Run Inference**: Edit `scripts/inference/infer_mathcanvas.sh` to set `your_model_path` and `your_save_path`, then execute:
 
     ```bash
