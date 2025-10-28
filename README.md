@@ -54,6 +54,7 @@
 
 ## 💥 News
 
+- **[2025-10-28]** The data generation code for the **Foundational Structure Generation** part of `MathCanvas-Edit` is now available. Refer to the [Data Generation](#-data-generation) section for usage instructions.
 - **[2025-10-23]** We release the [training/inference code](./BAGEL-Canvas/) of BAGEL-Canvas and [evaluation scripts](./evaluation/) for MathCanvas-Bench.
 - **[2025-10-18]** Our model and datasets are now accessible at [Huggingface](https://huggingface.co/collections/shiwk24/mathcanvas).
 - **[2025-10-18]** Our paper is now accessible at [ArXiv Paper](https://arxiv.org/pdf/2510.14958).
@@ -101,6 +102,30 @@ To evaluate the inference results on **MathCanvas-Bench**, follow the steps belo
     *   Weighted scoring accuracy and complete accuracy.
     *   Accuracy broken down by knowledge category.
     *   Accuracy based on whether the question includes initial images.
+
+## 🧬 Data Generation
+
+This section details the process for generating the **Foundational Structure Generation** subset of the `MathCanvas-Edit` dataset. Our synthesis pipeline for foundational geometric structures is based on the official implementation of [AlphaGeometry](https://github.com/google-deepmind/alphageometry).
+
+### Environment Setup
+
+Before running the generation script, you must set up the environment required by AlphaGeometry. Please refer to their official repository and follow the installation instructions.
+
+### Usage
+
+Once the environment is configured, you can generate the data by running the provided script.
+
+```bash
+cd foundations_synthesis/
+bash foundations_synthesis.sh
+```
+
+You can customize the generation process by modifying the `foundations_synthesis.sh` script. This includes parameters such as the total number of samples to generate and the length of the editing sequences.
+
+For convenience, we have already generated **1 million** editing sequences for this subset. You can directly access and download them from our dataset repository on Hugging Face: 
+
+*   **[🤗 MathCanvas-Edit Dataset](https://huggingface.co/datasets/shiwk24/MathCanvas-Edit)**.
+
 
 ## ✨ Highlights
 
@@ -171,7 +196,7 @@ Our code and models are currently being prepared for public release. We apprecia
 - [x] Release training and inference code for **BAGEL-Canvas**.
 - [x] Release evaluation scripts for the **MathCanvas-Bench**.
 - [ ] Update the evaluation scripts for the **MathCanvas-Bench** to [VLMEvalKit](https://github.com/open-compass/VLMEvalKit).
-- [ ] Release the data generation code for **Foundational Structure Generation** in MathCanvas-Edit.
+- [x] Release the data generation code for **Foundational Structure Generation** in MathCanvas-Edit.
 
 ## 📜 Citation
 
