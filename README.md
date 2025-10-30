@@ -54,6 +54,7 @@
 
 ## 💥 News
 
+- **[2025-10-30]** 🚀 We are excited to announce that **MathCanvas-Bench** is now officially supported by [VLMEvalKit](https://github.com/open-compass/VLMEvalKit)! This allows for easy evaluation on over **220+ LMMs**. For usage instructions, please refer to [this PR](https://github.com/open-compass/VLMEvalKit/pull/1292).
 - **[2025-10-28]** The data generation code for the **Foundational Structure Generation** part of `MathCanvas-Edit` is now available. Refer to the [Data Generation](#-data-generation) section for usage instructions.
 - **[2025-10-23]** We release the [training/inference code](./BAGEL-Canvas/) of BAGEL-Canvas and [evaluation scripts](./evaluation/) for MathCanvas-Bench.
 - **[2025-10-18]** Our model and datasets are now accessible at [Huggingface](https://huggingface.co/collections/shiwk24/mathcanvas).
@@ -195,7 +196,7 @@ Our code and models are currently being prepared for public release. We apprecia
 
 - [x] Release training and inference code for **BAGEL-Canvas**.
 - [x] Release evaluation scripts for the **MathCanvas-Bench**.
-- [ ] Update the evaluation scripts for the **MathCanvas-Bench** to [VLMEvalKit](https://github.com/open-compass/VLMEvalKit).
+- [x] Update the evaluation scripts for the **MathCanvas-Bench** to [VLMEvalKit](https://github.com/open-compass/VLMEvalKit).
 - [x] Release the data generation code for **Foundational Structure Generation** in MathCanvas-Edit.
 
 ## 📜 Citation
