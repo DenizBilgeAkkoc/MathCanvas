@@ -54,6 +54,7 @@
 
 ## 💥 News
 
+- **[2025-11-15]** Our MathCanvas-Instruct dataset--219k math problems with interleaved visual-text reasoning is now accessible at [Huggingface](https://huggingface.co/datasets/shiwk24/MathCanvas-Instruct).
 - **[2025-10-30]** 🚀 We are excited to announce that **MathCanvas-Bench** is now officially supported by [VLMEvalKit](https://github.com/open-compass/VLMEvalKit)! This allows for easy evaluation on over **220+ LMMs**. For usage instructions, please refer to [this PR](https://github.com/open-compass/VLMEvalKit/pull/1292).
 - **[2025-10-28]** The data generation code for the **Foundational Structure Generation** part of `MathCanvas-Edit` is now available. Refer to the [Data Generation](#-data-generation) section for usage instructions.
 - **[2025-10-23]** We release the [training/inference code](./BAGEL-Canvas/) of BAGEL-Canvas and [evaluation scripts](./evaluation/) for MathCanvas-Bench.
@@ -198,6 +199,9 @@ Our code and models are currently being prepared for public release. We apprecia
 - [x] Release evaluation scripts for the **MathCanvas-Bench**.
 - [x] Update the evaluation scripts for the **MathCanvas-Bench** to [VLMEvalKit](https://github.com/open-compass/VLMEvalKit).
 - [x] Release the data generation code for **Foundational Structure Generation** in MathCanvas-Edit.
+
+## Contact
+If you have any questions, please <a href="https://github.com/shiwk24/MathCanvas/issues" target="_blank">raise an issue</a> or contact us at <a href="mailto:wkshi@link.cuhk.edu.hk">wkshi@link.cuhk.edu.hk</a>.
 
 ## 📜 Citation
 
