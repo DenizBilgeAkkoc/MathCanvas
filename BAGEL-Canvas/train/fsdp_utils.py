@@ -7,7 +7,6 @@ from tqdm import tqdm
 
 import torch
 import torch.distributed as dist
-import torch.distributed.fsdp._traversal_utils as traversal_utils
 from torch.distributed.device_mesh import init_device_mesh
 from torch.distributed.fsdp import (
     CPUOffload,
@@ -111,7 +110,6 @@ class FSDPCheckpoint:
         ckpt_dir, 
         train_steps, 
         model, 
-        ema_model, 
         optimizer, 
         scheduler, 
         data_status,
@@ -122,20 +120,6 @@ class FSDPCheckpoint:
         save_path = os.path.join(ckpt_dir, f"{train_steps:07d}")
         os.makedirs(save_path, exist_ok=True)
         logger.info(f"Saving checkpoint to {save_path}.")
-
-        if ema_model is not None:
-            with FSDP.state_dict_type(
-                ema_model,
-                StateDictType.FULL_STATE_DICT,
-                FullStateDictConfig(rank0_only=True, offload_to_cpu=True),
-            ):
-                ema_state_dict = ema_model.state_dict()
-                if dist.get_rank() == 0:
-                    # Convert to bfloat16 before saving
-                    ema_state_dict = {k: v.to(dtype=torch.bfloat16) if v.dtype.is_floating_point else v 
-                                     for k, v in ema_state_dict.items()}
-                    save_file(ema_state_dict, os.path.join(save_path, "ema.safetensors"))
-                del ema_state_dict
 
         with FSDP.state_dict_type(
             model,
@@ -186,13 +170,10 @@ class FSDPCheckpoint:
         return
 
     @staticmethod
-    def try_load_ckpt(resume_from, logger, model, ema_model=None, resume_from_ema=False):
+    def try_load_ckpt(resume_from, logger, model):
         if resume_from is not None and os.path.exists(resume_from):
             logger.info(f"Loading checkpoint from {resume_from}.")
-            if resume_from_ema:
-                model_state_dict_path = os.path.join(resume_from, f"ema.safetensors")
-            else:
-                model_state_dict_path = os.path.join(resume_from, f"model.safetensors")
+            model_state_dict_path = os.path.join(resume_from, f"model.safetensors")
             model_state_dict = load_file(model_state_dict_path, device="cpu")
             # NOTE position embeds are fixed sinusoidal embeddings, so we can just pop it off,
             # which makes it easier to adapt to different resolutions.
@@ -201,23 +182,9 @@ class FSDPCheckpoint:
             msg = model.load_state_dict(model_state_dict, strict=False)
             logger.info(msg)
             del model_state_dict
-
-            if ema_model is not None:
-                ema_state_dict_path = os.path.join(resume_from, f"ema.safetensors")
-                if not os.path.exists(ema_state_dict_path):
-                    logger.info(f"replicaing ema model from {model_state_dict_path}.")
-                    ema_state_dict_path = model_state_dict_path
-                ema_state_dict = load_file(ema_state_dict_path, device="cpu")
-                # NOTE position embeds are fixed sinusoidal embeddings, so we can just pop it off,
-                # which makes it easier to adapt to different resolutions.
-                ema_state_dict.pop('latent_pos_embed.pos_embed')
-                ema_state_dict.pop('vit_pos_embed.pos_embed')
-                msg = ema_model.load_state_dict(ema_state_dict, strict=False)
-                logger.info(msg)
-                del ema_state_dict
         else:
             logger.info(f"Training from scratch.")
-        return model, ema_model
+        return model
 
     @staticmethod
     def try_load_train_state(resume_from, optimizer, scheduler, fsdp_config):
@@ -278,28 +245,3 @@ def grad_checkpoint_check_fn(module):
         Qwen2MoTDecoderLayer
     )
     return isinstance(module, module_options)
-
-
-def fsdp_ema_setup(ema_model, fsdp_config, ignored_modules=[]):
-    for param in ema_model.parameters():
-        param.requires_grad = False
-
-    ema_model = fsdp_wrapper(ema_model, fsdp_config, ignored_modules=ignored_modules)
-    return ema_model
-
-
-@torch.no_grad()
-def fsdp_ema_update(ema_model, model, decay=0.9999):
-    ema_handles = traversal_utils._get_fsdp_handles(ema_model)
-    new_handles = traversal_utils._get_fsdp_handles(model)
-    assert len(ema_handles) == len(new_handles)
-    ema_params = []
-    new_params = []
-
-    for ema_handle, new_handle in zip(ema_handles, new_handles):
-        if ema_handle.flat_param is not None and new_handle.flat_param.requires_grad:
-            ema_params.append(ema_handle.flat_param.data)
-            new_params.append(new_handle.flat_param.data.to(dtype=ema_handle.flat_param.dtype))
-
-    torch._foreach_mul_(ema_params, decay)
-    torch._foreach_add_(ema_params, new_params, alpha=1 - decay)

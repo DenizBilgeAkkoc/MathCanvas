@@ -5,7 +5,7 @@ RESUME_FROM="your_save_path/mathcanvas_stage1--0/checkpoints/0080000"
 RESUME_FROM=$RESUME_FROM
 
 
-export WANDB_API_KEY="your_wandb_key"
+# export WANDB_API_KEY="your_wandb_key"
 WANDB_ENABLE="True"
 WANDB_NAME="mathcanvas_stage2"
 WANDB_RUNID="0"

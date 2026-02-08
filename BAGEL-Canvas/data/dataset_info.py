@@ -77,9 +77,9 @@ DATASET_INFO = {
     
     'interleave_reasoning':{
         'mathcanvas_instruct': {
-            'data_dir': "your_data_path/MathCanvas-Instruct/data/train",
+            'data_dir': "/scratch/dakkoc25/Models//MathCanvas-Instruct/data/train",
             'num_files': 49,
-            'parquet_info_path': "your_data_path/MathCanvas-Instruct/data/train_parquet_info.json",
+            'parquet_info_path': "/scratch/dakkoc25/Models/MathCanvas-Instruct/data/train_parquet_info.json",
             "num_total_samples": 218604,
         },
     },
