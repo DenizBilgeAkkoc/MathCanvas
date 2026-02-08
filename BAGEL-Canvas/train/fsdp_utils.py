@@ -28,6 +28,13 @@ from modeling.bagel.qwen2_navit import (
 )
 from modeling.bagel.siglip_navit import SiglipEncoderLayer, SiglipVisionTransformer
 
+# Optional PEFT import for LoRA support
+try:
+    from peft import PeftModel
+    PEFT_AVAILABLE = True
+except ImportError:
+    PEFT_AVAILABLE = False
+
 
 class FSDPConfig:
     def __init__(
@@ -45,7 +52,7 @@ class FSDPConfig:
         self.num_shard = num_shard
 
 
-def fsdp_wrapper(original_model, fsdp_config, ignored_modules=[]):
+def fsdp_wrapper(original_model, fsdp_config, ignored_modules=[], use_orig_params=False):
     if fsdp_config.sharding_strategy == 'HYBRID_SHARD':
         device_mesh = init_device_mesh(
             "cuda", 
@@ -80,6 +87,7 @@ def fsdp_wrapper(original_model, fsdp_config, ignored_modules=[]):
         backward_prefetch=BackwardPrefetch[fsdp_config.backward_prefetch],
         cpu_offload=CPUOffload(offload_params=fsdp_config.cpu_offload),
         device_mesh=device_mesh,
+        use_orig_params=use_orig_params,  # Required for LoRA (mixed requires_grad)
     )
 
 def delete_previous_state(ckpt_dir, train_steps, logger):
@@ -116,6 +124,7 @@ class FSDPCheckpoint:
         logger, 
         fsdp_config,
         del_previous_state=False,
+        use_lora=False,
     ):
         save_path = os.path.join(ckpt_dir, f"{train_steps:07d}")
         os.makedirs(save_path, exist_ok=True)
@@ -132,6 +141,15 @@ class FSDPCheckpoint:
                 model_state_dict = {k: v.to(dtype=torch.bfloat16) if v.dtype.is_floating_point else v 
                                    for k, v in model_state_dict.items()}
                 save_file(model_state_dict, os.path.join(save_path, "model.safetensors"))
+                
+                # If LoRA is used, also save LoRA adapters separately for convenience
+                if use_lora and PEFT_AVAILABLE:
+                    lora_state_dict = {k: v for k, v in model_state_dict.items() if 'lora_' in k}
+                    if lora_state_dict:
+                        lora_save_path = os.path.join(save_path, "lora_adapters")
+                        os.makedirs(lora_save_path, exist_ok=True)
+                        save_file(lora_state_dict, os.path.join(lora_save_path, "adapter_model.safetensors"))
+                        logger.info(f"Saved LoRA adapters to {lora_save_path}")
             del model_state_dict
 
         with FSDP.state_dict_type(model, StateDictType.LOCAL_STATE_DICT):
@@ -170,15 +188,27 @@ class FSDPCheckpoint:
         return
 
     @staticmethod
-    def try_load_ckpt(resume_from, logger, model):
+    def try_load_ckpt(resume_from, logger, model, use_lora=False):
         if resume_from is not None and os.path.exists(resume_from):
             logger.info(f"Loading checkpoint from {resume_from}.")
             model_state_dict_path = os.path.join(resume_from, f"model.safetensors")
             model_state_dict = load_file(model_state_dict_path, device="cpu")
             # NOTE position embeds are fixed sinusoidal embeddings, so we can just pop it off,
             # which makes it easier to adapt to different resolutions.
-            model_state_dict.pop('latent_pos_embed.pos_embed')
-            model_state_dict.pop('vit_pos_embed.pos_embed')
+            model_state_dict.pop('latent_pos_embed.pos_embed', None)
+            model_state_dict.pop('vit_pos_embed.pos_embed', None)
+            
+            # When loading with LoRA, filter out non-matching keys if checkpoint was saved without LoRA
+            # or vice versa. The strict=False handles most cases automatically.
+            if use_lora:
+                logger.info("Loading checkpoint with LoRA enabled. LoRA weights will be loaded if present.")
+                # Check if checkpoint contains LoRA weights
+                has_lora_weights = any('lora_' in k for k in model_state_dict.keys())
+                if has_lora_weights:
+                    logger.info("Checkpoint contains LoRA weights.")
+                else:
+                    logger.info("Checkpoint does not contain LoRA weights. Only base model weights will be loaded.")
+            
             msg = model.load_state_dict(model_state_dict, strict=False)
             logger.info(msg)
             del model_state_dict

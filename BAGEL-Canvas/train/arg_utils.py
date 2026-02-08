@@ -310,6 +310,28 @@ class TrainingArguments:
         metadata={"help": "Number of initial batches to debug and print before starting training. Set to 0 to disable."}
     )
 
+    # --- LoRA configuration ---
+    use_lora: bool = field(
+        default=False,
+        metadata={"help": "Enable LoRA (Low-Rank Adaptation) for efficient fine-tuning of the LLM backbone."}
+    )
+    lora_r: int = field(
+        default=8,
+        metadata={"help": "LoRA rank (dimensionality of the low-rank matrices)."}
+    )
+    lora_alpha: int = field(
+        default=16,
+        metadata={"help": "LoRA alpha scaling factor. The scaling is alpha/r."}
+    )
+    lora_dropout: float = field(
+        default=0.05,
+        metadata={"help": "Dropout probability for LoRA layers."}
+    )
+    lora_target_modules: str = field(
+        default="all-linear",
+        metadata={"help": "Target modules for LoRA. Use 'all-linear' for all linear layers, or comma-separated module names."}
+    )
+
 
 def parse_args():
     """Parse CLI args into (model_args, data_args, training_args)."""

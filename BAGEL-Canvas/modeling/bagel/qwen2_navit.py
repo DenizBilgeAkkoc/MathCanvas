@@ -1127,6 +1127,12 @@ class Qwen2ForCausalLM(Qwen2PreTrainedModel):
 
     def get_decoder(self):
         return self.model
+    def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        """
+        Stub method required by PEFT. This model uses a custom generation interface
+        (forward_inference) rather than HuggingFace's generate(), so this is just a placeholder.
+        """
+        return {"input_ids": input_ids, **kwargs}
 
     def forward(self, *args, **kwargs):
         if self.training:

@@ -18,8 +18,9 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
 from torch.utils.data import DataLoader
 
 from transformers import set_seed
+from peft import LoraConfig, get_peft_model, TaskType
 
-from arg_utils import ModelArguments, DataArguments, TrainingArguments, parse_args
+from train.arg_utils import ModelArguments, DataArguments, TrainingArguments, parse_args
 from transformers.optimization import (
     get_constant_schedule_with_warmup,
     get_cosine_with_min_lr_schedule_with_warmup,
@@ -156,11 +157,45 @@ def main():
         model.config.llm_config.vocab_size = len(tokenizer)
         model.language_model.config.vocab_size = len(tokenizer)
 
+    # Apply LoRA to the language model if enabled:
+    if training_args.use_lora:
+        logger.info(f"Applying LoRA with r={training_args.lora_r}, alpha={training_args.lora_alpha}, dropout={training_args.lora_dropout}")
+        
+        # Parse target modules
+        if training_args.lora_target_modules == "all-linear":
+            # Target all linear layers in the Qwen2 model
+            target_modules = [
+                "q_proj", "k_proj", "v_proj", "o_proj",  # Attention projections
+                "gate_proj", "up_proj", "down_proj",      # MLP layers
+                # MoT variants (if using Qwen2MoTDecoderLayer)
+                "q_proj_moe_gen", "k_proj_moe_gen", "v_proj_moe_gen", "o_proj_moe_gen",
+            ]
+        else:
+            # User-specified comma-separated module names
+            target_modules = [m.strip() for m in training_args.lora_target_modules.split(",")]
+        
+        lora_config = LoraConfig(
+            r=training_args.lora_r,
+            lora_alpha=training_args.lora_alpha,
+            lora_dropout=training_args.lora_dropout,
+            target_modules=target_modules,
+            bias="none",
+            task_type=TaskType.CAUSAL_LM,
+        )
+        
+        # Apply LoRA to the language model
+        model.language_model = get_peft_model(model.language_model, lora_config)
+        
+        if dist.get_rank() == 0:
+            logger.info("LoRA applied to language model. Trainable parameters:")
+            model.language_model.print_trainable_parameters()
+
     # maybe freeze something:
     if training_args.freeze_vae and training_args.visual_gen:
         for param in vae_model.parameters():
             param.requires_grad = False
-    if training_args.freeze_llm:
+    if training_args.freeze_llm and not training_args.use_lora:
+        # Only freeze LLM if LoRA is not used (LoRA handles freezing internally)
         model.language_model.eval()
         for param in model.language_model.parameters():
             param.requires_grad = False
@@ -177,8 +212,9 @@ def main():
         num_replicate=training_args.num_replicate,
         num_shard=training_args.num_shard,
     )
-    model = FSDPCheckpoint.try_load_ckpt(resume_from, logger, model)
-    fsdp_model = fsdp_wrapper(model, fsdp_config)
+    model = FSDPCheckpoint.try_load_ckpt(resume_from, logger, model, use_lora=training_args.use_lora)
+    # use_orig_params=True is required when using LoRA (mixed requires_grad parameters)
+    fsdp_model = fsdp_wrapper(model, fsdp_config, use_orig_params=training_args.use_lora)
     apply_activation_checkpointing(
         fsdp_model, 
         checkpoint_wrapper_fn=functools.partial(
@@ -411,6 +447,7 @@ def main():
                 fsdp_config=fsdp_config,
                 data_status=gather_list,
                 del_previous_state=training_args.del_previous_state,
+                use_lora=training_args.use_lora,
             )
 
     logger.info("Done!")

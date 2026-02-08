@@ -13,6 +13,7 @@ torch==2.7.1
 torchvision==0.22.1
 transformers==4.55.4
 accelerate>=0.34.0
+peft>=0.11.0
 ipython==8.37.0
 ipywidgets==8.1.7
 datasets
