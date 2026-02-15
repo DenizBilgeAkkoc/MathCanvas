@@ -14,6 +14,7 @@ WANDB_RUNID="0"
 WANDB_RESUME="allow"
 WANDB_OFFLINE="False"
 
+
 # Output directories
 RESULTS_DIR="./results/${WANDB_NAME}--${WANDB_RUNID}"
 CKPT_DIR="${RESULTS_DIR}/checkpoints"
@@ -22,19 +23,18 @@ mkdir -p $CKPT_DIR
 
 torchrun \
   --nnodes=1 --node_rank=0 --master_addr=localhost --master_port=29501 \
-  --nproc_per_node=1 \
+  --nproc_per_node=6 \
   -m train.pretrain_unified_navit \
   --dataset_config_file ./data/configs/stage2.yaml \
   --results_dir $RESULTS_DIR \
   --checkpoint_dir $CKPT_DIR \
   --model_path $MODEL_PATH \
   --sharding_strategy FULL_SHARD \
-  --num_shard 1 \
-  --cpu_offload True \
+  --num_shard 6 \
   --layer_module Qwen2MoTDecoderLayer \
-  --max_latent_size 32 \
+  --max_latent_size 16 \
   --timestep_shift 2.0 \
-  --use_flex True \
+  --use_flex False \
   --finetune_from_hf True \
   --auto_resume True \
   --log_every 20 \
@@ -47,15 +47,15 @@ torchrun \
   --mse_weight 1 \
   --warmup_steps 500 \
   --total_steps 16000 \
-  --num_workers 4 \
+  --num_workers 6 \
   --max_num_tokens_per_sample 8192 \
-  --max_num_tokens 10240 \
+  --max_num_tokens 8192 \
   --expected_num_tokens 8192 \
   --prefer_buffer_before 8192 \
   --text_cond_dropout_prob 0.1 \
   --vit_cond_dropout_prob 0.1 \
   --vae_cond_dropout_prob 0.1 \
-  --debug_batches 3 \
+  --debug_batches 0 \
   --use_lora True \
   --lora_r 16 \
   --lora_alpha 32 \
@@ -65,4 +65,6 @@ torchrun \
   --wandb_name $WANDB_NAME \
   --wandb_runid $WANDB_RUNID \
   --wandb_resume $WANDB_RESUME \
-  --wandb_offline $WANDB_OFFLINE
+  --wandb_offline $WANDB_OFFLINE \
+  --freeze_vit True \
+  --cpu_offload False \

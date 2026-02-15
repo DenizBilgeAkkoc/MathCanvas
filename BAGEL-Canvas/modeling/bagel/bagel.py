@@ -98,6 +98,21 @@ class Bagel(PreTrainedModel):
             nn.init.constant_(self.llm2vae.weight, 0)
             nn.init.constant_(self.llm2vae.bias, 0)
 
+    @property
+    def _base_language_model(self):
+        """Get the base language model, handling both regular and PEFT-wrapped models."""
+        # Check if model is wrapped by PEFT (LoRA)
+        if hasattr(self.language_model, 'base_model'):
+            # PEFT-wrapped model: language_model.base_model.model is Qwen2ForCausalLM
+            return self.language_model.base_model.model.model
+        else:
+            # Regular model: language_model.model is Qwen2Model
+            return self.language_model.model
+
+    def _get_text_embeddings(self, text_ids):
+        """Get text embeddings, handling both regular and PEFT-wrapped models."""
+        return self._base_language_model.embed_tokens(text_ids)
+
     def forward(
         self,
         sequence_length: int,
@@ -148,7 +163,7 @@ class Bagel(PreTrainedModel):
             packed_timesteps: 1-D float tensor, flow timesteps. 0 indicates use clean image.
             mse_loss_indexes: 1-D bool tensor, where to compute mse loss.
         """
-        packed_text_embedding = self.language_model.model.embed_tokens(packed_text_ids)
+        packed_text_embedding = self._get_text_embeddings(packed_text_ids)
         packed_sequence = packed_text_embedding.new_zeros(size=(sequence_length, self.hidden_size))
         packed_sequence[packed_text_indexes] = packed_text_embedding
 
@@ -276,7 +291,7 @@ class Bagel(PreTrainedModel):
         packed_key_value_indexes: torch.LongTensor,
         key_values_lens: torch.IntTensor,
     ):
-        packed_text_embedding = self.language_model.model.embed_tokens(packed_text_ids)
+        packed_text_embedding = self._get_text_embeddings(packed_text_ids)
 
         extra_inputs = {}
         if self.use_moe:
@@ -376,7 +391,7 @@ class Bagel(PreTrainedModel):
         packed_key_value_indexes: torch.LongTensor,
         key_values_lens: torch.IntTensor,
     ):
-        packed_text_embedding = self.language_model.model.embed_tokens(packed_text_ids)
+        packed_text_embedding = self._get_text_embeddings(packed_text_ids)
         packed_sequence = packed_text_embedding.new_zeros((sum(packed_seqlens), self.hidden_size))
         packed_sequence[packed_text_indexes] = packed_text_embedding
 
@@ -507,7 +522,7 @@ class Bagel(PreTrainedModel):
         key_values_lens: torch.IntTensor,
         packed_key_value_indexes: torch.Tensor,
     ):
-        packed_text_embedding = self.language_model.model.embed_tokens(packed_text_ids)
+        packed_text_embedding = self._get_text_embeddings(packed_text_ids)
         packed_sequence = packed_text_embedding.new_zeros((sum(packed_seqlens), self.hidden_size))
         packed_sequence[packed_text_indexes] = packed_text_embedding
 
@@ -681,12 +696,12 @@ class Bagel(PreTrainedModel):
         verbose: bool = True,
     ):
         if enable_taylorseer:
-            self.language_model.model.enable_taylorseer = True
+            self._base_language_model.enable_taylorseer = True
             model_pred_cache_dic, model_pred_current = cache_init(self, num_timesteps)
             model_pred_text_cache_dic, model_pred_text_current = cache_init(self, num_timesteps)
             model_pred_img_cache_dic, model_pred_img_current = cache_init(self, num_timesteps)
         else:
-            self.language_model.model.enable_taylorseer = False
+            self._base_language_model.enable_taylorseer = False
             model_pred_cache_dic, model_pred_current = None, None
             model_pred_text_cache_dic, model_pred_text_current = None, None
             model_pred_img_cache_dic, model_pred_img_current = None, None
@@ -754,9 +769,9 @@ class Bagel(PreTrainedModel):
             del model_pred_img_cache_dic, model_pred_img_current
         
         if hasattr(self.language_model.model, 'enable_taylorseer'):
-            self.language_model.model.enable_taylorseer = False
+            self._base_language_model.enable_taylorseer = False
         
-        for layer in self.language_model.model.layers:
+        for layer in self._base_language_model.layers:
             if hasattr(layer, 'enable_taylorseer'):
                 delattr(layer, 'enable_taylorseer')
             if hasattr(layer, 'cache_dic'):
@@ -811,7 +826,7 @@ class Bagel(PreTrainedModel):
         model_pred_img_cache_dic: Optional[Dict[str, Any]] = None,
         model_pred_img_current: Optional[int] = None,
     ):
-        packed_text_embedding = self.language_model.model.embed_tokens(packed_text_ids)
+        packed_text_embedding = self._get_text_embeddings(packed_text_ids)
         packed_sequence = packed_text_embedding.new_zeros((sum(packed_seqlens), self.hidden_size))
         packed_sequence[packed_text_indexes] = packed_text_embedding
 
@@ -831,9 +846,9 @@ class Bagel(PreTrainedModel):
                 "packed_text_indexes": packed_text_indexes
             }
         
-        if self.language_model.model.enable_taylorseer:
-            self.language_model.model.cache_dic = model_pred_cache_dic
-            self.language_model.model.current = model_pred_current
+        if self._base_language_model.enable_taylorseer:
+            self._base_language_model.cache_dic = model_pred_cache_dic
+            self._base_language_model.current = model_pred_current
 
         output = self.language_model.forward_inference(
             packed_query_sequence=packed_sequence,
@@ -851,9 +866,9 @@ class Bagel(PreTrainedModel):
         v_t = v_t[packed_vae_token_indexes]
 
         if cfg_text_scale > 1.0:
-            if self.language_model.model.enable_taylorseer:
-                self.language_model.model.cache_dic = model_pred_text_cache_dic
-                self.language_model.model.current = model_pred_text_current
+            if self._base_language_model.enable_taylorseer:
+                self._base_language_model.cache_dic = model_pred_text_cache_dic
+                self._base_language_model.current = model_pred_text_current
             cfg_text_output = self.language_model.forward_inference(
                 packed_query_sequence=packed_sequence,
                 query_lens=packed_seqlens,
@@ -870,9 +885,9 @@ class Bagel(PreTrainedModel):
             cfg_text_v_t = cfg_text_v_t[packed_vae_token_indexes]
 
         if cfg_img_scale > 1.0:
-            if self.language_model.model.enable_taylorseer:
-                self.language_model.model.cache_dic = model_pred_img_cache_dic
-                self.language_model.model.current = model_pred_img_current
+            if self._base_language_model.enable_taylorseer:
+                self._base_language_model.cache_dic = model_pred_img_cache_dic
+                self._base_language_model.current = model_pred_img_current
             cfg_img_output = self.language_model.forward_inference(
                 packed_query_sequence=packed_sequence,
                 query_lens=packed_seqlens,
@@ -964,7 +979,7 @@ class Bagel(PreTrainedModel):
         
         while step < max_length:
             generated_sequence.append(curr_tokens)
-            packed_text_embedding = self.language_model.model.embed_tokens(curr_tokens)
+            packed_text_embedding = self._get_text_embeddings(curr_tokens)
             query_lens = torch.ones_like(curr_tokens)
             packed_query_indexes = torch.cumsum(key_values_lens, dim=0) + torch.arange(
                 0, len(key_values_lens), 
@@ -1018,7 +1033,7 @@ class Bagel(PreTrainedModel):
                 generated_sequence.append(curr_tokens)
 
                 # Generate one more token to determine the next action
-                packed_text_embedding = self.language_model.model.embed_tokens(curr_tokens)
+                packed_text_embedding = self._get_text_embeddings(curr_tokens)
                 
                 uppacked = list(packed_key_value_indexes.split(key_values_lens.tolist(), dim=0))
                 for i in range(len(uppacked)):

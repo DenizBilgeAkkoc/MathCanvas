@@ -40,7 +40,7 @@ from modeling.cache_utils.taylorseer import (
 torch._dynamo.config.cache_size_limit = 512
 torch._dynamo.config.accumulated_cache_size_limit = 4096
 # flex_attention = torch.compile(flex_attention) # , dynamic=True, mode='max-autotune'
-flex_attention = torch.compile(flex_attention)
+# flex_attention = torch.compile(flex_attention)
 
 
 class Qwen2Config(_Qwen2Config):
@@ -1127,6 +1127,7 @@ class Qwen2ForCausalLM(Qwen2PreTrainedModel):
 
     def get_decoder(self):
         return self.model
+
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         """
         Stub method required by PEFT. This model uses a custom generation interface
@@ -1135,10 +1136,17 @@ class Qwen2ForCausalLM(Qwen2PreTrainedModel):
         return {"input_ids": input_ids, **kwargs}
 
     def forward(self, *args, **kwargs):
+        # Filter out unexpected kwargs that PEFT/HuggingFace might add
+        # These are standard CausalLM arguments not used by this custom model
+        ignored_kwargs = ['input_ids', 'labels', 'use_cache', 'output_attentions', 
+                          'output_hidden_states', 'return_dict', 'cache_position',
+                          'position_ids', 'inputs_embeds']
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k not in ignored_kwargs}
+        
         if self.training:
-            return self.forward_train(*args, **kwargs)
+            return self.forward_train(*args, **filtered_kwargs)
         else:
-            return self.forward_inference(*args, **kwargs)
+            return self.forward_inference(*args, **filtered_kwargs)
 
     def forward_train(
         self,

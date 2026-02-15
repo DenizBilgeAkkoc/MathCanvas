@@ -3,12 +3,16 @@ interleave_reasoning:
   - mathcanvas_instruct
   image_transform_args:
     image_stride: 16
-    max_image_size: 512
-    min_image_size: 512
+    # max_image_size: 512
+    # min_image_size: 512
+    max_image_size: 256
+    min_image_size: 256    
   vit_image_transform_args:
     image_stride: 14
-    max_image_size: 512
-    min_image_size: 512
+    # max_image_size: 512
+    # min_image_size: 512
+    max_image_size: 256
+    min_image_size: 256
   is_mandatory: true
   num_used_data:
   - 49

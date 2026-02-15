@@ -375,6 +375,12 @@ def main():
             total_mse_tokens = torch.tensor(0, device=device)
 
         optimizer.zero_grad()
+                
+        # Memory check before backward (helps debug OOM)
+        if curr_step % training_args.log_every == 0:
+            mem_before = torch.cuda.memory_allocated() / 1024**3
+            logger.info(f"[Rank {dist.get_rank()}] Memory before backward: {mem_before:.2f} GB")
+        
         loss.backward()
         total_norm = fsdp_model.clip_grad_norm_(training_args.max_grad_norm)
         optimizer.step()
